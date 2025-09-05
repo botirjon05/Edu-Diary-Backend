@@ -73,7 +73,7 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
         by_subj = {}
         for g in qs:
             by_subj.setdefault(g.subject.name, []).append(g.value)
-        by_subj = [
+        by_subject = [
             {"subject": s, "avg": round(sum(vals)/len(vals), 2), "count": len(vals)}
             for s, vals in by_subj.items()
         ]
@@ -134,50 +134,36 @@ def _aware (dt: datetime) -> datetime:
     return dt.astimezone(tz)
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = EventSerializer
+    """Minimal, robust events API."""
     permission_classes = [permissions.AllowAny]
+    serializer_class = EventSerializer
+    queryset = Event.objects.select_related("owner", "subject").order_by("starts_at")
 
     def get_queryset(self):
-        qs = Event.objects.select_related("owner", "subject").order_by("starts_at")
+        qs = super().get_queryset()
         p = self.request.query_params
 
-        if p.get("owner"): qs = qs.filter(owner_id = p["owner"])
-        if p.get("subject"): qs = qs.filter(subject_id = p["subject"])
-
-        start = p.get("start")
-        end = p.get("end")
-
-        if start:
-            dt = parse_datetime(start)
-            if not dt:
-                d = parse_date(start)
-                if d:
-                    dt = datetime.combine(d, dtime.min)
-            if dt:
-                qs = qs.filter(start_at__gte =_aware(dt))
-        if end:
-            dt = parse_datetime(end)
-            if not dt:
-                d = parse_date(end)
-                if d:
-                    dt = datetime.combine(d, dtime.max)
-            if dt:
-                qs = qs.filter(starts_at__lte= _aware(dt))
+        # simple safe filters (ignore bad ids instead of crashing)
+        owner = p.get("owner")
+        subject = p.get("subject")
+        if owner and owner.isdigit():
+            qs = qs.filter(owner_id=int(owner))
+        if subject and subject.isdigit():
+            qs = qs.filter(subject_id=int(subject))
 
         if p.get("upcoming") == "true":
-            qs = qs.filter(starts_at__gte = timezone.now())
-        if p.get("today") == "true":
-            now = timezone.localdate()
-            start_dt = _aware(datetime.combine(now, dtime.min))
-            end_dt = _aware(datetime.combine(now, dtime.max))
-            qs = qs.filter(starts_at__range = (start_dt, end_dt))
+            qs = qs.filter(starts_at__gte=timezone.now())
 
         return qs
 
-    @action(detail = False, methods =["GET"])
+    @action(detail=False, methods=["GET"])
     def next(self, request):
-        """Return the next upcoming event (soonest starts_at >= now). """
-        obj = self.get_queryset().filter(starts_at__gte = timezone.now()).first()
+        obj = self.get_queryset().filter(starts_at__gte=timezone.now()).first()
         return Response(EventSerializer(obj).data if obj else None)
 
+    @action(detail=False, methods=["GET"])
+    def general(self, request):
+        """Events without a subject (for 'General Lectures')."""
+        qs = self.get_queryset().filter(subject__isnull=True)
+        return Response(EventSerializer(qs, many=True).data)
 

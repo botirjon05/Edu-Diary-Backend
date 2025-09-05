@@ -28,8 +28,12 @@ class AttendanceSerializer(serializers.ModelSerializer):
         fields = ["id", "user", "user_name", "subject", "subject_name", "date", "status"]
 
 class EventSerializer(serializers.ModelSerializer):
-    owner_name = serializers.ReadOnlyField(source = "owner.username")
-    subject_name = serializers.ReadOnlyField(source = "subject.name")
+    owner_name = serializers.SerializerMethodField()
+    subject_name = serializers.SerializerMethodField()
     class Meta:
         model = Event
-        fields = ["id", "owner", "owner_name", "subject", "subject_name", "title", "location", "start_at", "ends_at", "created_at"]
+        fields = ["id", "owner", "owner_name", "subject", "subject_name", "title", "location", "starts_at", "ends_at", "created_at"]
+    def get_owner_name(self,obj):
+        return obj.owner.username if getattr(obj, "owner", None) else None
+    def get_subject_name(self, obj):
+        return obj.subject.name if getattr(obj, "subject", None) else None

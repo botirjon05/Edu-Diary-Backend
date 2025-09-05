@@ -79,4 +79,4 @@ class Event(models.Model):
             raise ValidationError({"ends_at": "Ends at must be after Starts at."})
 
     def __str__(self):
-        return f"{self.title} @ {self.starts_at or 'TBD'}"
+        return f"{self.title} -- {self.starts_at or 'TBD'}"
