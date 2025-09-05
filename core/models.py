@@ -35,3 +35,24 @@ class Grade(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.subject.name}: {self.value}"
+
+class Attendance(models.Model):
+    PRESENT, ABSENT, LATE, EXCUSED = "PRESENT", "ABSENT", "LATE", "EXCUSED"
+    STATUS_CHOICES = [
+        (PRESENT, "Present"),
+        (ABSENT, "Absent"),
+        (LATE, "Late"),
+        (EXCUSED, "Excused"),
+    ]
+
+    user = models.ForeignKey(User, on_delete = models.CASCADE, related_name = "attendance")
+    subject = models.ForeignKey(Subject, on_delete = models.CASCADE, related_name = "attendance")
+    date = models.DateField()
+    status = models.CharField(max_length = 8, choices = STATUS_CHOICES)
+
+    class Meta:
+        unique_together = ("user", "subject", "date")
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"{self.user.username} {self.subject.name} {self.date} {self.status}"

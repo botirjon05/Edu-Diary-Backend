@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subject, Assignment, Grade
+from .models import Subject, Assignment, Grade, Attendance
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
@@ -16,5 +16,11 @@ class AssignmentAdmin(admin.ModelAdmin):
 class GradeAdmin(admin.ModelAdmin):
     list_display = ("user", "subject", "value", "credits", "graded_at")
     list_filter = ("subject",)
+    search_fields = ("user__username", "subject__name")
+
+@admin.register(Attendance)
+class AttendanceAdmin(admin.ModelAdmin):
+    list_display = ("user", "subject", "date", "status")
+    list_filter = ("subject", "status", "date")
     search_fields = ("user__username", "subject__name")
 
