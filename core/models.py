@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 class Subject(models.Model):
     code = models.CharField(max_length = 10, unique = True)  # MS for Math
@@ -70,8 +71,12 @@ class Event(models.Model):
     class Meta:
         ordering = ["starts_at"]
         indexes = [
-            models.Index (fields = ["starts_at"]),
+            models.Index(fields = ["starts_at"]),
         ]
 
+    def clean(self):
+        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
+            raise ValidationError({"ends_at": "Ends at must be after Starts at."})
+
     def __str__(self):
-        return f"{self,title} @ {self.starts_at: %Y-%m-%d %H:%M}"
+        return f"{self.title} @ {self.starts_at or 'TBD'}"
