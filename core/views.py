@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils.dateparse import parse_date, parse_datetime
 from datetime import datetime, time as dtime
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .admin import AssignmentAdmin
 from .models import Subject, Assignment, Grade, Attendance, Event
@@ -13,7 +14,7 @@ from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerialize
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
     serializer_class = SubjectSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
 
 class AssignmentViewSet (viewsets.ReadOnlyModelViewSet):
     serializer_class = AssignmentSerializer
