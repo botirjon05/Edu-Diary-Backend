@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Subject, Assignment, Grade
+from .models import Subject, Assignment, Grade, Attendance
 
 class SubjectSerializer (serializers.ModelSerializer):
     class Meta:
@@ -19,3 +19,10 @@ class GradeSerializer (serializers.ModelSerializer):
 
         model = Grade
         fields = ["id", "user", "user_name", "subject", "subject_name", "value", "credits", "graded_at"]
+
+class AttendanceSerializer(serializers.ModelSerializer):
+    user_name = serializers.ReadOnlyField(source = "user.username")
+    subject_name = serializers.ReadOnlyField(source = "subject.name")
+    class Meta:
+        model = Attendance
+        fields = ["id", "user", "user_name", "subject", "subject_name", "date", "status"]

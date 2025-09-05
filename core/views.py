@@ -3,10 +3,11 @@ from rest_framework import viewsets, permissions
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.dateparse import parse_date
 
 from .admin import AssignmentAdmin
-from .models import Subject, Assignment, Grade
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer
+from .models import Subject, Assignment, Grade, Attendance
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -76,6 +77,54 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
             for s, vals in by_subj.items()
         ]
         return Response ({"count": count, "avg": avg, "by_subject": by_subject})
+
+
+class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = AttendanceSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        qs = Attendance.objects.select_related("user", "subject")
+        p = self.request.query_params
+
+        if p.get("user"): qs = qs.filter(user_id = p["user"])
+        if p.get("subject"): qs = qs.filter(subject_id = p["subject"])
+        if p.get("status"): qs = qs.filter(status = p["status"].upper())
+        if p.get("start"): qs = qs.filter(date__gte = parse_date(p["start"]))
+        if p.get("end"): qs = qs.filter(date__lte = parse_date(p["end"]))
+        return qs.order_by ("-date")
+
+    @action(detail = False, methods = ["GET"])
+    def summary(self, request):
+        qs = self.get_queryset()
+        total = qs.count()
+        counts = {s: 0 for s in ["PRESENT", "ABSENT", "LATE", "EXCUSED"]}
+        for a in qs:
+            counts[a.status] += 1
+        present_pct = round((counts["PRESENT"] / total) * 100, 2) if total else 0.0
+
+        by_subject = {}
+        for a in qs:
+            d = by_subject.setdefault(a.subject.name, {"present": 0, "total": 0})
+            d["total"] += 1
+            if a.status == "PRESENT":
+                d["present"] += 1
+        per_subject = [
+            {
+                "subject": s,
+                "present": v["present"],
+                "total": v["total"],
+                "percent": round((v["present"] / v["total"])*100, 2) if v["total"] else 0.0,
+            }
+            for s, v in by_subject.items()
+        ]
+
+        return Response({
+            "total": total,
+            "counts": counts,
+            "present_percent": present_pct,
+            "by_subject": per_subject
+        })
 
 
 
