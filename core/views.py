@@ -3,11 +3,12 @@ from rest_framework import viewsets, permissions
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
+from datetime import datetime, time as dtime
 
 from .admin import AssignmentAdmin
-from .models import Subject, Assignment, Grade, Attendance
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer
+from .models import Subject, Assignment, Grade, Attendance, Event
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -126,5 +127,57 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
             "by_subject": per_subject
         })
 
+def _aware (dt: datetime) -> datetime:
+    tz = timezone.get_current_timezone()
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, tz)
+    return dt.astimezone(tz)
+
+class EventViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = EventSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        qs = Event.objects.select_related("owner", "subject").order_by("starts_at")
+        p = self.request.query_params
+
+        if p.get("owner"): qs = qs.filter(owner_id = p["owner"])
+        if p.get("subject"): qs = qs.filter(subject_id = p["subject"])
+
+        start = p.get("start")
+        end = p.get("end")
+
+        if start:
+            dt = parse_datetime(start)
+            if not dt:
+                d = parse_date(start)
+                if d:
+                    dt = datetime.combine(d, dtime.min)
+            if dt:
+                qs = qs.filter(start_at__gte =_aware(dt))
+        if end:
+            dt = parse_datetime(end)
+            if not dt:
+                d = parse_date(end)
+                if d:
+                    dt = datetime.combine(d, dtime.max)
+            if dt:
+                qs = qs.filter(starts_at__lte= _aware(dt))
+
+        if p.get("upcoming") == "true":
+            qs = qs.filter(starts_at__gte = timezone.now())
+        if p.get("today") == "true":
+            now = timezone.localdate()
+            start_dt = _aware(datetime.combine(now, dtime.min))
+            end_dt = _aware(datetime.combine(now, dtime.max))
+            qs = qs.filter(starts_at__range = (start_dt, end_dt))
+
+        return qs
+
+    @action(detail = False, methods =["GET"])
+    def next(self, request):
+        """Return the next upcoming event (soonest starts_at >= now). """
+        obj = self.get_queryset().filter(starts_at__gte = timezone.now()).first()
+        return Response(EventSerializer(obj).data if obj else None)
 
 
