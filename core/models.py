@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Subject(models.Model):
     code = models.CharField(max_length = 10, unique = True)  # MS for Math
@@ -56,3 +57,21 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.user.username} {self.subject.name} {self.date} {self.status}"
+
+class Event(models.Model):
+    owner = models.ForeignKey(User, on_delete = models.CASCADE, related_name = "events")
+    subject = models.ForeignKey(Subject, on_delete = models.SET_NULL, null = True, blank = True, related_name = "events")
+    title = models.CharField(max_length = 200)
+    location = models.CharField(max_length = 200, blank = True, null = True)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add = True)
+
+    class Meta:
+        ordering = ["starts_at"]
+        indexes = [
+            models.Index (fields = ["starts_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self,title} @ {self.starts_at: %Y-%m-%d %H:%M}"
