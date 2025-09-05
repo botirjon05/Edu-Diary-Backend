@@ -24,3 +24,14 @@ class Assignment(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.subject.name})"
+
+
+class Grade(models.Model):
+    user = models.ForeignKey(User, on_delete = models.CASCADE, related_name = "grades")
+    subject = models.ForeignKey(Subject, on_delete = models.CASCADE, related_name = "grades")
+    value = models.FloatField()
+    credits = models.FloatField(blank = True, null = True)
+    graded_at = models.DateTimeField(auto_now_add = True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.subject.name}: {self.value}"
