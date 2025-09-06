@@ -1,5 +1,10 @@
 import pickle
+from http.client import responses
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.shortcuts import render
 from rest_framework import viewsets, permissions
 from django.utils import timezone
@@ -12,7 +17,7 @@ from rest_framework import filters
 
 from .admin import AssignmentAdmin
 from .models import Subject, Assignment, Grade, Attendance, Event
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -40,10 +45,17 @@ class AssignmentViewSet (viewsets.ReadOnlyModelViewSet):
 
 
 class GradeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Grade.objects.none()
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["subject__name"]
+    ordering_fields = ["graded_at", "value"]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return self.queryset
+
         qs = Grade.objects.select_related ("user", "subject").order_by("-graded_at")
         user = self.request.user
         if not user.is_superuser:
@@ -79,10 +91,14 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Attendance.objects.none()
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return self.queryset
+
         qs = Attendance.objects.select_related("user", "subject")
         user = self.request.user
         if not user.is_superuser:
@@ -171,3 +187,31 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
         qs = self.get_queryset().filter(subject__isnull=True)
         return Response(EventSerializer(qs, many=True).data)
 
+
+
+@extend_schema(
+    request = RegisterSerializer,
+    responses = {201: OpenApiResponse(response = dict, description = "Created and returns JWT tokens")},
+    description = "Create a new user account and return access/refresh JWT tokens. "
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def register(request):
+    serializer = RegisterSerializer(data = request.data)
+    try:
+
+        serializer.is_valid(raise_exception = True)
+        user = serializer.save()
+    except Exception as e:
+        return Response({"error": str(e)}, status =400)
+    refresh = RefreshToken.for_user(user)
+    return Response(
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        },
+            status = 201,
+        )
