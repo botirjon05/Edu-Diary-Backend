@@ -215,3 +215,15 @@ def register(request):
         },
             status = 201,
         )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def me(request):
+    u = request.user
+    return Response({
+        "id": u.id,
+        "username": u.username,
+        "email": u.email,
+        "first_name": u.first_name,
+        "last_name": u.last_name,
+    })

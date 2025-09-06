@@ -3,7 +3,7 @@ from django.urls import path
 
 
 from rest_framework.routers import DefaultRouter
-from .views import SubjectViewSet, AssignmentViewSet, GradeViewSet, AttendanceViewSet, EventViewSet, register
+from .views import SubjectViewSet, AssignmentViewSet, GradeViewSet, AttendanceViewSet, EventViewSet, register, me
 
 router = DefaultRouter()
 router.register(r"subjects", SubjectViewSet, basename = "subject")
@@ -14,4 +14,5 @@ router.register(r"events", EventViewSet, basename = "event")
 
 urlpatterns = router.urls + [
     path("auth/register/", register, name = "register"),
+    path("auth/me/", me, name = "me"),
 ]
