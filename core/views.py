@@ -18,7 +18,7 @@ class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
 
 class AssignmentViewSet (viewsets.ReadOnlyModelViewSet):
     serializer_class = AssignmentSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = Assignment.objects.select_related("subject").order_by("due_at")
@@ -42,29 +42,27 @@ class AssignmentViewSet (viewsets.ReadOnlyModelViewSet):
 
 class GradeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GradeSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = Grade.objects.select_related ("user", "subject").order_by("-graded_at")
-        params = self.request.query_params
-        subject = params.get("subject")
-        user_id = params.get ("user")
-        minv = params.get ("min")
-        maxv = params.get ("max")
+        user = self.request.user
+        if not user.is_superuser:
+            qs = qs.filter(user=user)
+        p = self.request.query_params
 
-        if subject:
-            qs = qs.filter(subject_id = subject)
-        if user_id:
-            qs = qs.filter (user_id = user_id)
-        if minv is not None:
-            qs = qs.filter(value__gte = float(minv))
-        if maxv is not None:
-            qs = qs.filter(value__lte = float(maxv))
+        if p.get("subject"):
+            qs = qs.filter(subject_id = p["subject"])
+        if p.get("min"):
+            qs = qs.filter(value__gte = float(p["min"]))
+        if p.get("max"):
+            qs = qs.filter(value__lte = float(p["max"]))
         return qs
+
 
     @action(detail = False, methods = ["GET"])
     def summary(self, request):
-        """Simple averages for charts/widgets."""
+
         qs = self.get_queryset()
         count = qs.count()
         if count == 0:
@@ -83,10 +81,13 @@ class GradeViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AttendanceSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = Attendance.objects.select_related("user", "subject")
+        user = self.request.user
+        if not user.is_superuser:
+            qs = qs.filter(user=user)
         p = self.request.query_params
 
         if p.get("user"): qs = qs.filter(user_id = p["user"])
@@ -136,12 +137,15 @@ def _aware (dt: datetime) -> datetime:
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
     """Minimal, robust events API."""
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = EventSerializer
     queryset = Event.objects.select_related("owner", "subject").order_by("starts_at")
 
     def get_queryset(self):
         qs = super().get_queryset()
+        user = self.request.user
+        if not user.is_superuser:
+            qs = qs.filter(owner=user)
         p = self.request.query_params
 
         # simple safe filters (ignore bad ids instead of crashing)
