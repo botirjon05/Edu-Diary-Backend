@@ -1,3 +1,5 @@
+import pickle
+
 from django.shortcuts import render
 from rest_framework import viewsets, permissions
 from django.utils import timezone
@@ -6,6 +8,7 @@ from rest_framework.response import Response
 from django.utils.dateparse import parse_date, parse_datetime
 from datetime import datetime, time as dtime
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import filters
 
 from .admin import AssignmentAdmin
 from .models import Subject, Assignment, Grade, Attendance, Event
@@ -19,25 +22,21 @@ class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
 class AssignmentViewSet (viewsets.ReadOnlyModelViewSet):
     serializer_class = AssignmentSerializer
     permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["title", "description", "subject__name"]
+    ordering_fields = ["due_at", "created_at"]
 
     def get_queryset(self):
         qs = Assignment.objects.select_related("subject").order_by("due_at")
-        params = self.request.query_params
-        subject = params.get("subject")
-        status = params.get("status")
-        upcoming = params.get("upcoming")
-        overdue = params.get("overdue")
+        p = self.request.query_params
 
-        if subject:
-            qs = qs.filter(subject_id = subject)
-        if status:
-            qs = qs.filter(status = status.upper())
+        if p.get("subject"): qs = qs.filter(subject_id = p["subject"])
+        if p.get("status"): qs = qs.filter(status = p["status"].upper())
         now = timezone.now()
-        if upcoming == "true":
-            qs = qs.filter(status="PENDING", due_at__gte=now)
-        if overdue == "true":
-            qs = qs.filter(status="PENDING", due_at__lt=now)
+        if p.get("upcoming") == "true": qs = qs.filter(status = "PENDING", due_at__gte = now)
+        if p.get("overdue") == "true": qs = qs.filter(status = "PENDING", due_at__lt =now)
         return qs
+
 
 
 class GradeViewSet(viewsets.ReadOnlyModelViewSet):
