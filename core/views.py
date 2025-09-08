@@ -157,6 +157,8 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Event.objects.select_related("owner", "subject").order_by("starts_at")
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Event.objects.none()
         qs = super().get_queryset()
         user = self.request.user
         if not user.is_superuser:
