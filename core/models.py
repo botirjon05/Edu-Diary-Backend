@@ -1,3 +1,6 @@
+from email.policy import default
+from random import choices
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -80,3 +83,21 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.title} -- {self.starts_at or 'TBD'}"
+
+
+class Enrollment(models.Model):
+    STUDENT = "STUDENT"
+    TEACHER = "TEACHER"
+    ROLE_CHOICES = [(STUDENT, "Student"), (TEACHER, "Teacher")]
+
+    user = models.ForeignKey(User, on_delete = models.CASCADE, related_name = "enrollments")
+    subject = models.ForeignKey(Subject, on_delete = models.CASCADE, related_name = "enrollments")
+    role = models.CharField(max_length = 10, choices = ROLE_CHOICES, default = STUDENT)
+    created_at = models.DateTimeField(auto_now_add = True)
+
+    class Meta:
+        unique_together = ("user", "subject")
+        ordering = ["subject__name"]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.subject.code} ({self.role})"
