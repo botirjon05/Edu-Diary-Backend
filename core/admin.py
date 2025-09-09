@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subject, Assignment, Grade, Attendance, Event
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
@@ -34,5 +34,11 @@ class EventAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.full_clean()
         super().save_model(request, obj, form, change)
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = ("user", "subject", "role", "created_at")
+    list_filter = ("role", "subject")
+    search_fields = ("user__username", "subject__name", "subject__code")
 
 
