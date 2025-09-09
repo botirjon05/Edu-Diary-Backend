@@ -16,8 +16,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import filters
 
 from .admin import AssignmentAdmin
-from .models import Subject, Assignment, Grade, Attendance, Event
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer, EnrollmentSerializer
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -229,3 +229,29 @@ def me(request):
         "first_name": u.first_name,
         "last_name": u.last_name,
     })
+
+class EnrollmentViewSet(viewsets.ModelViewSet):
+    """
+    Enroll/Unenroll the current user; list my enrollments.
+    """
+
+    queryset = Enrollment.objects.none()
+    serializer_class = EnrollmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return self.queryset
+        qs = Enrollment.objects.select_related ("subject", "user")
+        if not self.request.user.is_staff:
+            qs = qs.filter(user = self.request.user)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(user = self.request.user)
+
+    def perform_destroy(self, instance):
+        if self.request.user.is_staff or instance.user_id == self.request.user.id:
+            return super().perform_destroy(instance)
+        return Response({"detail" : "Not allowed"}, status = 403)
+
