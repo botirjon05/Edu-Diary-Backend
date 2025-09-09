@@ -1,7 +1,8 @@
+from importlib.util import source_hash
 from wsgiref.validate import validator
 
 from rest_framework import serializers
-from .models import Subject, Assignment, Grade, Attendance, Event
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.validators import UniqueValidator
@@ -86,3 +87,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name = validated_data.get("last_name", ""),
         )
         return user
+
+class EnrollmentSerializer(serializers.ModelSerializer):
+    subject_name = serializers.ReadOnlyField(source = "subject.name")
+    subject_code = serializers.ReadOnlyField(source = "subject.code")
+
+    class Meta:
+        model = Enrollment
+        fields = ["id", "subject", "subject_code", "subject_name", "role", "created_at"]
+        read_only_fields = ["created_at"]
