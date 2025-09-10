@@ -14,6 +14,8 @@ from django.utils.dateparse import parse_date, parse_datetime
 from datetime import datetime, time as dtime
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import filters
+from django.db import IntegrityError
+from rest_framework import serializers
 
 from .admin import AssignmentAdmin
 from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
@@ -248,7 +250,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(user = self.request.user)
+        try:
+            serializer.save(user = self.request.user)
+        except IntegrityError:
+            raise serializers.ValidationError({"subject": "You are already enrolled in this subject. "})
+
 
     def perform_destroy(self, instance):
         if self.request.user.is_staff or instance.user_id == self.request.user.id:

@@ -95,4 +95,12 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Enrollment
         fields = ["id", "subject", "subject_code", "subject_name", "role", "created_at"]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["id", "subject_code", "subject_name", "created_at"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        subject = attrs.get("subject")
+        if request and request.user and subject:
+            if Enrollment.objects.filter(user = request.user, subject = subject).exists():
+                raise serializers.ValidationError({"subject": "You are already enrolled in this subject. "})
+        return attrs
