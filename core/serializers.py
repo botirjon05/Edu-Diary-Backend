@@ -2,7 +2,7 @@ from importlib.util import source_hash
 from wsgiref.validate import validator
 
 from rest_framework import serializers
-from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment, Announcement
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.validators import UniqueValidator
@@ -104,3 +104,12 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             if Enrollment.objects.filter(user = request.user, subject = subject).exists():
                 raise serializers.ValidationError({"subject": "You are already enrolled in this subject. "})
         return attrs
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    subject_name = serializers.ReadOnlyField(source = "subject.name")
+    created_by_name = serializers.ReadOnlyField(source = "created_by.username")
+
+    class Meta:
+        model = Announcement
+        fields = ["id", "subject", "subject_name", "title", "body", "created_by", "created_by_name", "created_at", ]
+        read_only_fields = ["id", "subject_name", "created_by_name", "created_at"]

@@ -16,10 +16,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import filters
 from django.db import IntegrityError
 from rest_framework import serializers
+from django.db.models import Q
 
 from .admin import AssignmentAdmin
-from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer, EnrollmentSerializer
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment, Announcement
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer, EnrollmentSerializer, AnnouncementSerializer
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -261,3 +262,27 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             return super().perform_destroy(instance)
         return Response({"detail" : "Not allowed"}, status = 403)
 
+
+class AnnouncementViewSet(viewsets.ReadOnlyModelViewSet):
+    """List announcements. Users see announcements for their subjects + general ones """
+
+    serializer_class = AnnouncementSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["title", "body", "subject_name"]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Announcement.objects.none()
+
+        qs = Announcement.objects.select_related("subject", "created_by")
+        subject = self.request.query_params.get("subject")
+        if subject and subject.isdigit():
+            qs = qs.filter(subject_id = int(subject))
+
+        if not self.request.user.is_staff:
+            my_subject_ids = Enrollment.objects.filter(user = self.request.user).values_list("subject_id", flat = True)
+            qs = qs.filter(Q(subject__in = my_subject_ids) | Q(subject__isnull=True))
+        return qs.order_by("-created_at")

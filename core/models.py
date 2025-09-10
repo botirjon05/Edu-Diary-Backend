@@ -1,3 +1,4 @@
+from dataclasses import fields
 from email.policy import default
 from random import choices
 
@@ -5,6 +6,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 
 class Subject(models.Model):
     code = models.CharField(max_length = 10, unique = True)  # MS for Math
@@ -101,3 +103,19 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.subject.code} ({self.role})"
+
+User = get_user_model()
+
+class Announcement(models.Model):
+    subject = models.ForeignKey("Subject", on_delete = models.CASCADE, null = True, blank = True, related_name = "announcement", help_text = "Optional. Leave empty for a general announcement" )
+    title = models.CharField(max_length = 200)
+    body = models.TextField()
+    created_by = models.ForeignKey(User, on_delete = models.SET_NULL, null = True, blank = True, related_name = "announcement_created",)
+    created_at = models.DateTimeField(auto_now_add = True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields = ["-created_at"])]
+
+    def __str__(self):
+        return self.title or f"Announcement #{self.pk}"

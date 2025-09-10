@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment
+from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment, Announcement
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
@@ -40,5 +40,17 @@ class EnrollmentAdmin(admin.ModelAdmin):
     list_display = ("user", "subject", "role", "created_at")
     list_filter = ("role", "subject")
     search_fields = ("user__username", "subject__name", "subject__code")
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ("title", "subject", "created_by", "created_at")
+    list_filter = ("subject", "created_at")
+    search_fields = ("title", "body")
+    date_hierarchy = "created_at"
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
