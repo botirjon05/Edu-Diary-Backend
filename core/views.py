@@ -17,10 +17,11 @@ from rest_framework import filters
 from django.db import IntegrityError
 from rest_framework import serializers
 from django.db.models import Q
+from drf_spectacular import types as spectacular_types
 
 from .admin import AssignmentAdmin
 from .models import Subject, Assignment, Grade, Attendance, Event, Enrollment, Announcement
-from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer, EnrollmentSerializer, AnnouncementSerializer
+from .serializers import SubjectSerializer, AssignmentSerializer, GradeSerializer, AttendanceSerializer, EventSerializer, RegisterSerializer, EnrollmentSerializer, AnnouncementSerializer, DashboardOut
 
 class SubjectViewSet (viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.all().order_by("name")
@@ -286,3 +287,56 @@ class AnnouncementViewSet(viewsets.ReadOnlyModelViewSet):
             my_subject_ids = Enrollment.objects.filter(user = self.request.user).values_list("subject_id", flat = True)
             qs = qs.filter(Q(subject__in = my_subject_ids) | Q(subject__isnull=True))
         return qs.order_by("-created_at")
+
+@extend_schema (
+    summary = "Dashboard snapshot",
+    description = "Aggregated data for the signed-in user: my subjects, upcoming assignments, recent grades, announcements.",
+    responses ={200: OpenApiResponse(response = spectacular_types.OpenApiTypes.OBJECT)},
+)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def dashboard(request):
+    user = request.user
+    now = timezone.now()
+
+    my_subjects_qs = (Subject.objects.filter(enrollments__user = user).order_by("name").distinct())
+    my_subjects = SubjectSerializer(my_subjects_qs, many =True).data
+
+    upcoming_qs = (
+        Assignment.objects.filter(
+            subject__in = my_subjects_qs,
+            status = "PENDING",
+            due_at__gte = now,
+        )
+        .select_related("subject")
+        .order_by("due_at")[:5]
+    )
+    upcoming_assignments = AssignmentSerializer(upcoming_qs, many = True).data
+
+    recent_grades_qs = (
+        Grade.objects.filter(user = user)
+        .select_related ( "subject")
+        .order_by("-graded_at")[:4]
+    )
+    recent_grades = GradeSerializer(recent_grades_qs, many = True).data
+
+    announcements_qs = (
+        Announcement.objects.filter(
+            Q(subject__in = my_subjects_qs) | Q(subject__isnull=True)
+        )
+        .select_related ("subject", "created_by")
+        .order_by ("-created_at")[:5]
+    )
+    announcements = AnnouncementSerializer(announcements_qs, many = True).data
+
+    return Response(
+        {
+            "my_subjects": my_subjects,
+            "upcoming_assignments": upcoming_assignments,
+            "recent_grades": recent_grades,
+            "announcements": announcements,
+        }
+    )
+
+

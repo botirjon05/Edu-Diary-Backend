@@ -113,3 +113,9 @@ class AnnouncementSerializer(serializers.ModelSerializer):
         model = Announcement
         fields = ["id", "subject", "subject_name", "title", "body", "created_by", "created_by_name", "created_at", ]
         read_only_fields = ["id", "subject_name", "created_by_name", "created_at"]
+
+class DashboardOut(serializers.Serializer):
+    my_subjects = SubjectSerializer (many = True)
+    upcoming_assignments = AssignmentSerializer(many = True)
+    recent_grades = GradeSerializer(many = True)
+    announcements = AnnouncementSerializer(many = True)
